@@ -1,0 +1,327 @@
+================================================================================
+  PROMPT OPTIMIZADO - POLYMUSIC (Aplicativo tipo Spotify)
+  Tecnologia: ASP Clasico (VBScript) - Extension .asp
+  Autor: Anthony Chiluiza - G2 Web Avanzada
+================================================================================
+
+================================================================================
+  1. CONTEXTO GENERAL
+================================================================================
+
+Desarrolla un aplicativo web tipo Spotify llamado "PolyMusic" usando ASP 
+Clasico con VBScript. TODAS las paginas deben tener extension .asp (NO ASP.NET,
+NO C#, NO .aspx). El proyecto debe ejecutarse sobre IIS con motor de base de 
+datos Microsoft SQL Server (SSMS).
+
+================================================================================
+  2. BASE DE DATOS (DEBE RESPETARSE AL PIE DE LA LETRA)
+================================================================================
+
+La base de datos se llama BDD_PoliMusic y contiene las siguientes tablas con
+SUS NOMBRES EXACTOS y cardinalidad:
+
+  +-------------------+  +-------------------+  +-------------------+
+  |   TBL_CATALOG     |  |     TBL_SONG      |  |     TBL_USER      |
+  +-------------------+  +-------------------+  +-------------------+
+  | ID_CATALOG (PK)   |  | ID_SONG (PK)      |  | ID_USER (PK)      |
+  | COD_CATALOG_PARENT|  | SONG_NAME         |  | USERNAME          |
+  | COD_CATALOG       |  | SONG_PATH         |  | PASSWORD          |
+  | VALUE             |  | PLAYS             |  | EMAIL             |
+  +-------------------+  +-------------------+  | BIRTHDAY          |
+                                                | USER_PHOTO        |
+                                                | USER_TYPE (FK)    |
+                                                +-------------------+
+
+  +-------------------+  +-------------------+  +-------------------+
+  |   TBL_ALBUM       |  |  TBL_TRACKLIST    |  |   TBL_ARTIST      |
+  +-------------------+  +-------------------+  +-------------------+
+  | ID_ALBUM (PK)     |  | ID_ALBUM (FK,PK)  |  | ID_ARTIST (PK)    |
+  | TITLE_ALBUM       |  | ID_SONG (FK,PK)   |  | ARTIST_NAME       |
+  | RELEASE_YEAR      |  +-------------------+  | ARTIST_LASTNAME   |
+  | ALBUM_IMAGE_PATH  |                         | ARTIST_IMAGE      |
+  +-------------------+                         +-------------------+
+
+  +-------------------+  +-------------------+  +-------------------+
+  |   TBL_PLAYER      |  |   TBL_PLAYLIST    |  | TBL_PLAYLIST_SONG |
+  +-------------------+  +-------------------+  +-------------------+
+  | ID_SONG (FK,PK)   |  | ID_PLAYLIST (PK)  |  | ID_PLAYLIST(FK,PK)|
+  | ID_ARTIST (FK,PK) |  | ID_USER (FK)      |  | ID_SONG (FK,PK)   |
+  +-------------------+  | TITLE             |  +-------------------+
+                         | CREATION_DATE     |
+                         | TYPE (FK)         |
+                         | PHOTO             |
+                         +-------------------+
+
+CARDINALIDAD DE RELACIONES:
+- TBL_ALBUM  1:N  TBL_TRACKLIST  N:1  TBL_SONG   (Album tiene muchas canciones)
+- TBL_SONG   1:N  TBL_PLAYER     N:1  TBL_ARTIST (Cancion tiene muchos artistas)
+- TBL_USER   1:N  TBL_PLAYLIST   (Un usuario tiene muchas playlists)
+- TBL_PLAYLIST 1:N TBL_PLAYLIST_SONG N:1 TBL_SONG (Playlist tiene muchas canciones)
+- TBL_CATALOG: Tabla de catalogos. COD_CATALOG_PARENT vacio = catalogo padre.
+  * Catalogo "1" = USER TYPE (0=USER, 1=ADMIN)
+  * Catalogo "2" = PLAYLIST TYPE (0=Public, 1=Private)
+
+================================================================================
+  3. ROLES Y PERMISOS
+================================================================================
+
+Existen EXACTAMENTE 2 roles de usuario, definidos en TBL_CATALOG:
+
+  ROL ADMINISTRADOR (USER_TYPE = 1):
+  - Acceso total a TODOS los CRUDs del sistema
+  - Puede crear, leer, actualizar y eliminar:
+    * Canciones (TBL_SONG)
+    * Artistas (TBL_ARTIST)
+    * Albumes (TBL_ALBUM)
+    * Usuarios (TBL_USER)
+    * Playlists (TBL_PLAYLIST) - todas las playlists
+  - Acceso a panel de administracion
+
+  ROL USUARIO NORMAL (USER_TYPE = 0):
+  - SOLO puede crear playlists (CRUD completo de sus propias playlists)
+  - Puede ver el catalogo de canciones, albumes y artistas (solo lectura)
+  - NO puede modificar, crear ni eliminar canciones, artistas, albumes ni usuarios
+  - NO puede ver ni modificar playlists de otros usuarios
+
+================================================================================
+  4. PANTALLAS Y FUNCIONALIDADES REQUERIDAS
+================================================================================
+
+4.1 LOGIN (login.asp)
+---------------------
+- Campos: USERNAME y PASSWORD
+- Validar contra TBL_USER (USERNAME + PASSWORD)
+- El campo PASSWORD puede estar en texto plano O en hash SHA1 (el seed tiene
+  ambos casos: userNormal/12345678 en plano, username1/7C222FB292... en SHA1)
+- Al autenticar exitosamente, almacenar en variables de sesion:
+  * Session("ID_USER")
+  * Session("USERNAME")
+  * Session("USER_TYPE")
+  * Session("USER_PHOTO")
+- Redirigir a home.asp
+- Mensaje de error si credenciales invalidas
+
+4.2 HOME / DASHBOARD (home.asp)
+-------------------------------
+- Mostrar mensaje de bienvenida: "Bienvenido/a, [USERNAME]" leido desde
+  la variable de sesion Session("USERNAME")
+- Mostrar el rol del usuario (Admin o Normal)
+- Boton de CIERRE DE SESION (logout.asp) que destruya la sesion y redirija
+  al login
+- Mostrar texto "Song List" como titulo del listado de canciones
+- Tabla HTML con listado de canciones (TBL_SONG) con estilos CSS
+- La tabla debe mostrar: nombre de cancion, artistas (via TBL_PLAYER + 
+  TBL_ARTIST), album (via TBL_TRACKLIST + TBL_ALBUM), reproducciones (PLAYS)
+- Capacidad de reproducir canciones (reproductor de audio HTML5 con controles)
+- Si es ADMIN: mostrar menu de acceso a CRUDs (Canciones, Artistas, Albumes,
+  Usuarios, Playlists)
+- Si es NORMAL: mostrar solo opcion "Mis Playlists" para crear y gestionar
+  sus propias playlists
+
+4.3 CRUD CANCIONES (admin/songs.asp)
+------------------------------------
+- Solo accesible por ADMIN
+- Listar todas las canciones de TBL_SONG en tabla HTML
+- Formulario para crear/editar: SONG_NAME, SONG_PATH (ruta al archivo MP3),
+  PLAYS
+- Boton eliminar con confirmacion
+- Asociar artistas via TBL_PLAYER
+- Asociar album via TBL_TRACKLIST
+
+4.4 CRUD ARTISTAS (admin/artists.asp)
+-------------------------------------
+- Solo accesible por ADMIN
+- Listar todos los artistas de TBL_ARTIST
+- Formulario: ARTIST_NAME, ARTIST_LASTNAME, ARTIST_IMAGE
+- Boton eliminar con confirmacion
+
+4.5 CRUD ALBUMES (admin/albums.asp)
+-----------------------------------
+- Solo accesible por ADMIN
+- Listar todos los albumes de TBL_ALBUM
+- Formulario: TITLE_ALBUM, RELEASE_YEAR, ALBUM_IMAGE_PATH
+- Boton eliminar con confirmacion
+- Gestionar tracklist (asociar/desasociar canciones via TBL_TRACKLIST)
+
+4.6 CRUD USUARIOS (admin/users.asp)
+-----------------------------------
+- Solo accesible por ADMIN
+- Listar todos los usuarios de TBL_USER
+- Formulario: USERNAME, PASSWORD, EMAIL, BIRTHDAY, USER_PHOTO, USER_TYPE
+- Boton eliminar con confirmacion
+- No permitir eliminar el propio usuario logueado
+
+4.7 CRUD PLAYLISTS (admin/playlists.asp + user/playlists.asp)
+-------------------------------------------------------------
+- ADMIN: ve y puede editar/eliminar TODAS las playlists
+- NORMAL: solo ve y puede crear/editar/eliminar sus PROPIAS playlists
+- Formulario: TITLE, TYPE (0=Public, 1=Private), PHOTO
+- Gestionar canciones de la playlist (agregar/eliminar via TBL_PLAYLIST_SONG)
+
+================================================================================
+  5. DISENO VISUAL
+================================================================================
+
+PALETA DE COLORES (OBLIGATORIA):
+- Color REPRESENTATIVO: MORADO (purple)
+  * Morado oscuro:  #4a148c  o  #6a1b9a
+  * Morado medio:   #8e24aa  o  #ab47bc
+  * Morado claro:   #ce93d8  o  #e1bee7
+- Color DEGRADADO: BLANCO (white) en degradado hacia morado claro
+  * Fondo: gradiente de blanco (#ffffff) hacia morado muy claro (#f3e5f5)
+- Texto principal: #1a0033 (morado muy oscuro) o #ffffff (sobre fondos morados)
+
+ESTILOS:
+- Todas las paginas deben usar HTML + CSS + JavaScript (NO frameworks externos)
+- CSS embebido en archivo comun (css/style.css) o en <style> por pagina
+- Diseno responsive (adaptable a movil)
+- Tipografia: Segoe UI, Roboto, Helvetica, Arial (sans-serif)
+- Bordes redondeados, sombras suaves, transiciones suaves
+- Tablas con encabezado morado y filas alternadas
+- Botones con bordes redondeados (pill shape)
+- Reproductor de audio fijo en la parte inferior (player bar tipo Spotify)
+
+================================================================================
+  6. SEGURIDAD
+================================================================================
+
+- Sanitizar TODAS las entradas de usuario antes de mostrar en HTML usando
+  Server.HTMLEncode() para prevenir XSS
+- Escapar comillas simples en consultas SQL (Replace("'", "''")) para
+  prevenir SQL Injection
+- Validar tipo de usuario (USER_TYPE) en cada pagina de administracion;
+  si un usuario normal intenta acceder, mostrar mensaje de acceso denegado
+- Usar variables de sesion para autenticacion
+- Cerrar objetos ADODB (Recordset, Connection) y liberar memoria (Set = Nothing)
+- Validar que el usuario logueado no pueda eliminarse a si mismo
+- No exponer rutas absolutas del servidor en la interfaz
+
+================================================================================
+  7. DATOS FICTICIOS (CONTENIDO DINAMICO)
+================================================================================
+
+El seed de la base de datos YA contiene datos iniciales. Sin embargo, como
+los recursos de imagenes y canciones son limitados (solo 1 MP3 y algunas
+imagenes), el sistema debe:
+
+- Generar placeholders visuales cuando no haya imagen disponible (div con
+  gradiente morado y letra inicial del nombre)
+- Usar la cancion bensound-adventure.mp3 para todas las canciones del seed
+  (o generar rutas ficticias para las demas)
+- Mostrar datos de artistas, albumes y playlists del seed de forma dinamica
+  desde la base de datos
+- Si el usuario agrega nuevos registros, permitir subir archivos o usar
+  rutas relativas a la carpeta SongFilesAndImages_resources/
+
+RUTAS DE RECURSOS:
+- Canciones MP3: SongFilesAndImages_resources/SongFiles/
+- Imagenes de playlist: SongFilesAndImages_resources/PlaylistImages/
+- Imagenes de usuario: SongFilesAndImages_resources/UserImages/
+
+================================================================================
+  8. CONEXION A BASE DE DATOS
+================================================================================
+
+Usar ADO (ADODB.Connection) con el siguiente string de conexion:
+
+  Provider=SQLOLEDB;
+  Data Source=localhost\SQLEXPRESS;
+  Initial Catalog=BDD_PoliMusic;
+  User ID=usr_polimusic;
+  Password=Politecnica1;
+
+Crear un archivo includes/cnx.asp con la conexion reutilizable.
+
+================================================================================
+  9. LEYES DE NIELSEN A APLICAR
+================================================================================
+
+Aplica las siguientes heuristicas de Nielsen en el diseno:
+
+1. Visibilidad del estado del sistema: Mostrar mensajes de confirmacion,
+   errores y estado de carga.
+2. Coincidencia entre el sistema y el mundo real: Usar iconos reconocibles
+   (play, pause, basura, lapiz), terminologia musical familiar.
+3. Control y libertad del usuario: Boton de logout siempre visible, opcion
+   de cancelar operaciones.
+4. Consistencia y estandares: Mantener la misma paleta, tipografia y
+   estructura en todas las paginas.
+5. Prevencion de errores: Validar formularios antes de enviar, confirmar
+   eliminaciones.
+6. Reconocimiento antes que recuerdo: Mostrar menus de navegacion visibles,
+   breadcrumb si es posible.
+7. Flexibilidad y eficiencia de uso: Atajos para usuarios avanzados (admin).
+8. Diseno estetico y minimalista: No saturar la interfaz, espacios en blanco.
+9. Ayudar a reconocer, diagnosticar y recuperarse de errores: Mensajes de
+   error claros y amigables.
+10. Ayuda y documentacion: Incluir tooltips o textos de ayuda breves.
+
+================================================================================
+ 10. ESTRUCTURA DE ARCHIVOS SUGERIDA
+================================================================================
+
+/
+|-- login.asp              (pantalla de login)
+|-- home.asp               (dashboard principal)
+|-- logout.asp             (destruye sesion)
+|-- css/
+|   |-- style.css          (estilos globales)
+|-- js/
+|   |-- player.js          (logica del reproductor)
+|-- includes/
+|   |-- cnx.asp            (conexion a BD)
+|   |-- helpers.asp        (funciones comunes)
+|-- admin/
+|   |-- songs.asp          (CRUD canciones)
+|   |-- artists.asp        (CRUD artistas)
+|   |-- albums.asp         (CRUD albumes)
+|   |-- users.asp          (CRUD usuarios)
+|   |-- playlists.asp      (CRUD playlists admin)
+|-- user/
+|   |-- playlists.asp      (CRUD playlists usuario normal)
+|-- SongFilesAndImages_resources/
+    |-- SongFiles/
+    |-- PlaylistImages/
+    |-- UserImages/
+
+================================================================================
+ 11. REQUISITOS TECNICOS EXPLICITOS
+================================================================================
+
+[X] ASP Clasico con VBScript (extension .asp obligatoria)
+[X] 2 roles: Normal (0) y Admin (1)
+[X] Solo Admin puede realizar CRUDs completos
+[X] Usuario Normal solo puede crear playlists (CRUD propio)
+[X] Diseno original con colores propios (morado + blanco degradado)
+[X] HTML + CSS + JavaScript puro (sin frameworks)
+[X] Mensaje de bienvenida con nombre de usuario desde variable de sesion
+[X] Opcion de cierre de sesion (logout)
+[X] Texto "Song List" indicando listado de canciones
+[X] Tabla HTML con listado de canciones con estilos CSS
+[X] Capacidad de reproducir canciones (reproductor HTML5)
+[X] Uso de imagenes y canciones de SongFilesAndImages_resources
+[X] Respetar nombres exactos de tablas y cardinalidad del diagrama ER
+[X] Seguridad aceptable (sanitizacion, validacion de roles, sesiones)
+[X] Datos ficticios para contenido dinamico cuando los recursos sean limitados
+[X] Base de datos SQL Server (SSMS)
+[X] Aplicar leyes de Nielsen en el diseno UX/UI
+
+================================================================================
+ 12. NOTAS ADICIONALES
+================================================================================
+
+- El login usa SOLO el campo USERNAME (no email) para autenticar.
+- La contrasena de los usuarios seed es "12345678" (texto plano para
+  userNormal y userAdmin; hash SHA1 para username1).
+- El usuario admin seed es: userAdmin / 12345678
+- El usuario normal seed es: userNormal / 12345678
+- Las imagenes por defecto estan en las subcarpetas default.jpg
+- El reproductor debe ser un componente fijo en la parte inferior de la
+  pantalla, tipo Spotify, que se actualice al hacer clic en "Play" de
+  cualquier cancion del listado.
+- Todas las paginas deben incluir validacion de sesion al inicio.
+- Las paginas de admin deben incluir validacion adicional de USER_TYPE = 1.
+
+================================================================================
+                           FIN DEL PROMPT
+================================================================================
